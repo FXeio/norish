@@ -1,4 +1,6 @@
 import {
+  bulkCreateSiteAuthTokens,
+  bulkDeleteSiteAuthTokens,
   createSiteAuthToken,
   deleteSiteAuthToken,
   getTokensByUserId,
@@ -6,6 +8,8 @@ import {
 } from "@norish/db/repositories/site-auth-tokens";
 import { trpcLogger as log } from "@norish/shared-server/logger";
 import {
+  BulkCreateSiteAuthTokenInputSchema,
+  BulkDeleteSiteAuthTokenInputSchema,
   CreateSiteAuthTokenInputSchema,
   DeleteSiteAuthTokenInputSchema,
   UpdateSiteAuthTokenInputSchema,
@@ -55,4 +59,28 @@ const remove = authedProcedure
     return { success: true };
   });
 
-export const siteAuthTokensProcedures = router({ create, list, update, remove });
+const bulkCreate = authedProcedure
+  .input(BulkCreateSiteAuthTokenInputSchema)
+  .mutation(async ({ ctx, input }) => {
+    log.debug({ userId: ctx.user.id, count: input.length }, "Bulk creating site auth tokens");
+    const tokens = await bulkCreateSiteAuthTokens(ctx.user.id, input);
+
+    log.info(
+      { userId: ctx.user.id, count: tokens.length },
+      "Site auth tokens bulk created"
+    );
+
+    return tokens;
+  });
+
+const bulkDelete = authedProcedure
+  .input(BulkDeleteSiteAuthTokenInputSchema)
+  .mutation(async ({ ctx, input }) => {
+    log.debug({ userId: ctx.user.id, count: input.ids.length }, "Bulk deleting site auth tokens");
+    await bulkDeleteSiteAuthTokens(ctx.user.id, input.ids);
+    log.info({ userId: ctx.user.id, count: input.ids.length }, "Site auth tokens bulk deleted");
+
+    return { success: true };
+  });
+
+export const siteAuthTokensProcedures = router({ create, list, update, remove, bulkCreate, bulkDelete });
