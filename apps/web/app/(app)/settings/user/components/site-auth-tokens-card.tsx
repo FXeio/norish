@@ -92,7 +92,7 @@ export default function SiteAuthTokensCard() {
 
     setIsCreating(true);
     try {
-      const newToken = await createMutation.mutateAsync({ domain, name, value, type });
+      const newToken = await createMutation.mutateAsync({ domain, name, value, type: type as "header" | "cookie" });
 
       queryClient.setQueryData(listQueryOptions.queryKey, (prev: typeof tokens | undefined) =>
         prev ? [...prev, newToken] : [newToken]
@@ -127,7 +127,7 @@ export default function SiteAuthTokensCard() {
       if (cookies.length === 0) {
         showSafeErrorToast({
           title: tErrors("operationFailed"),
-          description: "No cookies found in the input",
+          description: tErrors("technicalDetails"),
           color: "danger",
           error: new Error("Empty parse result"),
           context: "site-auth-tokens:bulk-create",
@@ -315,6 +315,7 @@ export default function SiteAuthTokensCard() {
                 <TableHeader>
                   <TableColumn width={40}>
                     <Checkbox
+                      aria-label={t("selectAll")}
                       isSelected={tokens.length > 0 && selectedIds.size === tokens.length}
                       isIndeterminate={selectedIds.size > 0 && selectedIds.size < tokens.length}
                       onValueChange={toggleSelectAll}

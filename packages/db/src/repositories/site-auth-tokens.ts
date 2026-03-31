@@ -182,12 +182,7 @@ export async function deleteSiteAuthToken(userId: string, tokenId: string): Prom
 }
 
 export async function bulkDeleteSiteAuthTokens(userId: string, ids: string[]): Promise<void> {
-  const result = await db
+  await db
     .delete(siteAuthTokens)
-    .where(and(eq(siteAuthTokens.userId, userId), inArray(siteAuthTokens.id, ids)))
-    .returning({ id: siteAuthTokens.id });
-
-  if (result.length !== ids.length) {
-    throw new Error(`Expected to delete ${ids.length} tokens, but deleted ${result.length}`);
-  }
+    .where(and(eq(siteAuthTokens.userId, userId), inArray(siteAuthTokens.id, ids)));
 }
