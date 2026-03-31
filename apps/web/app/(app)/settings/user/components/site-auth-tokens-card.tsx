@@ -7,6 +7,7 @@ import {
   Card,
   CardBody,
   CardHeader,
+  Checkbox,
   Chip,
   Input,
   Modal,
@@ -22,14 +23,18 @@ import {
   TableColumn,
   TableHeader,
   TableRow,
+  Textarea,
 } from "@heroui/react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 
 import NewFeatureChip from "../../components/new-feature-chip";
 
+import { parseJsonCookies, parseNetscapeCookies } from "@/lib/cookie-parsers";
 import { showSafeErrorToast } from "@/lib/ui/safe-error-toast";
 import { useTRPC } from "@/app/providers/trpc-provider";
+
+type FormType = "header" | "cookie" | "netscape" | "json";
 
 export default function SiteAuthTokensCard() {
   const t = useTranslations("settings.user.siteAuthTokens");
@@ -45,12 +50,15 @@ export default function SiteAuthTokensCard() {
   // Mutations
   const createMutation = useMutation(trpc.siteAuthTokens.create.mutationOptions());
   const removeMutation = useMutation(trpc.siteAuthTokens.remove.mutationOptions());
+  const bulkCreateMutation = useMutation(trpc.siteAuthTokens.bulkCreate.mutationOptions());
+  const bulkDeleteMutation = useMutation(trpc.siteAuthTokens.bulkDelete.mutationOptions());
 
   // Form state
   const [domain, setDomain] = useState("");
   const [name, setName] = useState("");
   const [value, setValue] = useState("");
-  const [type, setType] = useState<"header" | "cookie">("header");
+  const [type, setType] = useState<FormType>("header");
+  const [bulkText, setBulkText] = useState("");
   const [isCreating, setIsCreating] = useState(false);
 
   // Delete modal state
@@ -85,6 +93,47 @@ export default function SiteAuthTokensCard() {
     }
   };
 
+  const handleBulkCreate = async () => {
+    if (!bulkText.trim()) return;
+
+    setIsCreating(true);
+    try {
+      const cookies = type === "netscape"
+        ? parseNetscapeCookies(bulkText)
+        : parseJsonCookies(bulkText);
+
+      if (cookies.length === 0) {
+        showSafeErrorToast({
+          title: tErrors("operationFailed"),
+          description: "No cookies found in the input",
+          color: "danger",
+          error: new Error("Empty parse result"),
+          context: "site-auth-tokens:bulk-create",
+        });
+        return;
+      }
+
+      const newTokens = await bulkCreateMutation.mutateAsync(cookies);
+
+      queryClient.setQueryData(listQueryOptions.queryKey, (prev: typeof tokens | undefined) =>
+        prev ? [...prev, ...newTokens] : newTokens
+      );
+
+      setBulkText("");
+      setType("header");
+    } catch (error) {
+      showSafeErrorToast({
+        title: tErrors("operationFailed"),
+        description: tErrors("technicalDetails"),
+        color: "danger",
+        error,
+        context: "site-auth-tokens:bulk-create",
+      });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
   const handleDelete = async (tokenId: string) => {
     try {
       await removeMutation.mutateAsync({ id: tokenId });
@@ -106,7 +155,10 @@ export default function SiteAuthTokensCard() {
     }
   };
 
-  const isFormValid = domain.trim() && name.trim() && value.trim();
+  const isBulkMode = type === "netscape" || type === "json";
+  const isFormValid = isBulkMode
+    ? bulkText.trim().length > 0
+    : domain.trim() && name.trim() && value.trim();
 
   return (
     <>
@@ -124,55 +176,69 @@ export default function SiteAuthTokensCard() {
           {/* Create form */}
           <div className="flex flex-col gap-3">
             <div className="flex items-end gap-2">
-              <Input
-                className="flex-1"
-                label={t("domain")}
-                placeholder={t("domainPlaceholder")}
-                size="sm"
-                value={domain}
-                onValueChange={setDomain}
-              />
-              <Input
-                className="flex-1"
-                label={t("name")}
-                placeholder={t("namePlaceholder")}
-                size="sm"
-                value={name}
-                onValueChange={setName}
-              />
-              <Input
-                className="flex-1"
-                label={t("value")}
-                placeholder={t("valuePlaceholder")}
-                size="sm"
-                type="password"
-                value={value}
-                onValueChange={setValue}
-              />
+              {!isBulkMode && (
+                <>
+                  <Input
+                    className="flex-1"
+                    label={t("domain")}
+                    placeholder={t("domainPlaceholder")}
+                    size="sm"
+                    value={domain}
+                    onValueChange={setDomain}
+                  />
+                  <Input
+                    className="flex-1"
+                    label={t("name")}
+                    placeholder={t("namePlaceholder")}
+                    size="sm"
+                    value={name}
+                    onValueChange={setName}
+                  />
+                  <Input
+                    className="flex-1"
+                    label={t("value")}
+                    placeholder={t("valuePlaceholder")}
+                    size="sm"
+                    type="password"
+                    value={value}
+                    onValueChange={setValue}
+                  />
+                </>
+              )}
               <Select
-                className="w-36 shrink-0"
+                className={isBulkMode ? "w-36" : "w-36 shrink-0"}
                 label={t("type")}
                 selectedKeys={[type]}
                 size="sm"
                 onSelectionChange={(keys) => {
-                  const selected = Array.from(keys)[0] as "header" | "cookie";
+                  const selected = Array.from(keys)[0] as FormType;
 
                   if (selected) setType(selected);
                 }}
               >
                 <SelectItem key="header">{t("typeHeader")}</SelectItem>
                 <SelectItem key="cookie">{t("typeCookie")}</SelectItem>
+                <SelectItem key="netscape">{t("typeNetscape")}</SelectItem>
+                <SelectItem key="json">{t("typeJson")}</SelectItem>
               </Select>
             </div>
+            {isBulkMode && (
+              <Textarea
+                minRows={4}
+                placeholder={type === "netscape" ? t("bulkPlaceholderNetscape") : t("bulkPlaceholderJson")}
+                value={bulkText}
+                onValueChange={setBulkText}
+              />
+            )}
             <div className="flex justify-end">
               <Button
                 color="primary"
                 isDisabled={!isFormValid}
                 isLoading={isCreating}
                 startContent={<PlusIcon className="h-4 w-4" />}
-                onPress={handleCreate}
+                onPress={isBulkMode ? handleBulkCreate : handleCreate}
               >
-                {t("addButton")}
+                {isBulkMode ? t("importButton") : t("addButton")}
               </Button>
             </div>
           </div>
