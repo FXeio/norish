@@ -75,6 +75,13 @@
       "type": "유형",
       "typeHeader": "헤더",
       "typeCookie": "쿠키",
+      "typeNetscape": "Netscape",
+      "typeJson": "JSON",
+      "bulkPlaceholderNetscape": "Paste Netscape cookie file contents here...",
+      "bulkPlaceholderJson": "Paste JSON cookie array here...",
+      "importButton": "Import Cookies",
+      "deleteSelected": "Delete Selected",
+      "selectAll": "Select All",
       "addButton": "토큰 추가",
       "noTokens": "설정된 사이트 인증 토큰이 없습니다.",
       "tableHeaders": {

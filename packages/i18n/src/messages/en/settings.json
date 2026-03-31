@@ -75,6 +75,13 @@
       "type": "Type",
       "typeHeader": "Header",
       "typeCookie": "Cookie",
+      "typeNetscape": "Netscape",
+      "typeJson": "JSON",
+      "bulkPlaceholderNetscape": "Paste Netscape cookie file contents here...",
+      "bulkPlaceholderJson": "Paste JSON cookie array here...",
+      "importButton": "Import Cookies",
+      "deleteSelected": "Delete Selected",
+      "selectAll": "Select All",
       "addButton": "Add Token",
       "noTokens": "No site authentication tokens configured.",
       "tableHeaders": {
