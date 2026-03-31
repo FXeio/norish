@@ -65,6 +65,28 @@ export default function SiteAuthTokensCard() {
   const [showDeleteModal, setShowDeleteModal] = useState(false);
   const [tokenToDelete, setTokenToDelete] = useState<string | null>(null);
 
+  // Selection state
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedIds.size === tokens.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(tokens.map((t) => t.id)));
+    }
+  };
+
   const handleCreate = async () => {
     if (!domain.trim() || !name.trim() || !value.trim()) return;
 
@@ -152,6 +174,36 @@ export default function SiteAuthTokensCard() {
     } finally {
       setShowDeleteModal(false);
       setTokenToDelete(null);
+      setSelectedIds((prev) => {
+        if (!tokenToDelete) return prev;
+        const next = new Set(prev);
+
+        next.delete(tokenToDelete);
+
+        return next;
+      });
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+
+    try {
+      await bulkDeleteMutation.mutateAsync({ ids: Array.from(selectedIds) });
+
+      queryClient.setQueryData(listQueryOptions.queryKey, (prev: typeof tokens | undefined) =>
+        prev ? prev.filter((t) => !selectedIds.has(t.id)) : prev
+      );
+
+      setSelectedIds(new Set());
+    } catch (error) {
+      showSafeErrorToast({
+        title: tErrors("operationFailed"),
+        description: tErrors("technicalDetails"),
+        color: "danger",
+        error,
+        context: "site-auth-tokens:bulk-delete",
+      });
     }
   };
 
@@ -246,8 +298,28 @@ export default function SiteAuthTokensCard() {
           {/* Token list */}
           {tokens.length > 0 && (
             <div className="mt-4">
+              {selectedIds.size > 0 && (
+                <div className="flex justify-end">
+                  <Button
+                    color="danger"
+                    isLoading={bulkDeleteMutation.isPending}
+                    size="sm"
+                    startContent={<TrashIcon className="h-4 w-4" />}
+                    onPress={handleBulkDelete}
+                  >
+                    {t("deleteSelected")} ({selectedIds.size})
+                  </Button>
+                </div>
+              )}
               <Table aria-label={t("title")}>
                 <TableHeader>
+                  <TableColumn width={40}>
+                    <Checkbox
+                      isSelected={tokens.length > 0 && selectedIds.size === tokens.length}
+                      isIndeterminate={selectedIds.size > 0 && selectedIds.size < tokens.length}
+                      onValueChange={toggleSelectAll}
+                    />
+                  </TableColumn>
                   <TableColumn>{t("tableHeaders.domain")}</TableColumn>
                   <TableColumn>{t("tableHeaders.name")}</TableColumn>
                   <TableColumn>{t("tableHeaders.type")}</TableColumn>
@@ -257,6 +329,12 @@ export default function SiteAuthTokensCard() {
                 <TableBody>
                   {tokens.map((token) => (
                     <TableRow key={token.id}>
+                      <TableCell>
+                        <Checkbox
+                          isSelected={selectedIds.has(token.id)}
+                          onValueChange={() => toggleSelect(token.id)}
+                        />
+                      </TableCell>
                       <TableCell>
                         <code className="bg-default-100 rounded px-2 py-1 text-xs">
                           {token.domain}
