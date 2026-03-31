@@ -61,3 +61,14 @@ export const SiteAuthTokenSafeSchema = z.object({
   createdAt: z.date(),
   updatedAt: z.date(),
 });
+
+// Bulk create input — array of individual create inputs
+export const BulkCreateSiteAuthTokenInputSchema = z
+  .array(CreateSiteAuthTokenInputSchema)
+  .min(1)
+  .max(100);
+
+// Bulk delete input — array of token IDs
+export const BulkDeleteSiteAuthTokenInputSchema = z.object({
+  ids: z.array(z.string().uuid()).min(1).max(100),
+});
