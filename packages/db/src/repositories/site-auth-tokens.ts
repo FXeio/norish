@@ -6,7 +6,7 @@ import type {
   UpdateSiteAuthTokenInputDto,
 } from "@norish/shared/contracts/dto/site-auth-tokens";
 
-import { and, eq } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import { decrypt, encrypt } from "@norish/auth/crypto";
 import { db } from "@norish/db/drizzle";
 import { siteAuthTokens } from "@norish/db/schema";
@@ -61,6 +61,32 @@ export async function createSiteAuthToken(
   const parsed = SiteAuthTokenSelectSchema.parse(row);
 
   return toSafeToken(parsed);
+}
+
+export async function bulkCreateSiteAuthTokens(
+  userId: string,
+  inputs: CreateSiteAuthTokenInputDto[]
+): Promise<SiteAuthTokenSafeDto[]> {
+  const validated = inputs.map((input) => CreateSiteAuthTokenInputSchema.parse(input));
+
+  const rows = await db
+    .insert(siteAuthTokens)
+    .values(
+      validated.map((v) => ({
+        userId,
+        domain: v.domain,
+        name: v.name,
+        valueEnc: encrypt(v.value),
+        type: v.type,
+      }))
+    )
+    .returning();
+
+  return rows.map((row) => {
+    const parsed = SiteAuthTokenSelectSchema.parse(row);
+
+    return toSafeToken(parsed);
+  });
 }
 
 export async function getTokensByUserId(userId: string): Promise<SiteAuthTokenSafeDto[]> {
@@ -153,4 +179,15 @@ export async function deleteSiteAuthToken(userId: string, tokenId: string): Prom
     .returning({ id: siteAuthTokens.id });
 
   if (result.length === 0) throw new Error("Token not found or access denied");
+}
+
+export async function bulkDeleteSiteAuthTokens(userId: string, ids: string[]): Promise<void> {
+  const result = await db
+    .delete(siteAuthTokens)
+    .where(and(eq(siteAuthTokens.userId, userId), inArray(siteAuthTokens.id, ids)))
+    .returning({ id: siteAuthTokens.id });
+
+  if (result.length !== ids.length) {
+    throw new Error(`Expected to delete ${ids.length} tokens, but deleted ${result.length}`);
+  }
 }
