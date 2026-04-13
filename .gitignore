@@ -56,8 +56,6 @@ bun.lockb
 /yt-dlp
 /yt-dlp.exe
 
-docker-compose.yml
-
 # archives
 *.tar.gz
 
